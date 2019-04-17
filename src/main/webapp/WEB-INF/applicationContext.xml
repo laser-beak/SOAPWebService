@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ws="http://jax-ws.dev.java.net/spring/core"
+       xmlns:wss="http://jax-ws.dev.java.net/spring/servlet"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+       http://jax-ws.dev.java.net/spring/core
+       http://jax-ws.java.net/spring/core.xsd
+       http://jax-ws.dev.java.net/spring/servlet
+       http://jax-ws.java.net/spring/servlet.xsd">
+
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+          destroy-method="close">
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+
+    <!-- Hibernate 4 SessionFactory Bean definition -->
+    <bean id="hibernate3AnnotatedSessionFactory"
+          class="org.springframework.orm.hibernate3.annotation.AnnotationSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="annotatedClasses">
+            <list>
+                <value>com.aincorp.entity.Result</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">${hibernate.dialect}</prop>
+                <prop key="hibernate.current_session_context_class">${hibernate.current_session_context_class}</prop>
+                <prop key="hibernate.show_sql">${hibernate.show_sql}</prop>
+            </props>
+        </property>
+    </bean>
+
+    <bean id="resultDAO" class="com.aincorp.dao.ResultDAOImpl">
+        <property name="sessionFactory" ref="hibernate3AnnotatedSessionFactory"/>
+    </bean>
+
+
+    <!-- soap web service -->
+    <bean id="resultService" class="com.aincorp.services.ResultServiceImpl">
+        <property name="resultDao" ref="resultDAO"/>
+    </bean>
+
+    <bean id="myFileReaderProcessor" class="com.aincorp.processor.FileReaderProcessor">
+        <property name="properties" ref="myProperties"/>
+    </bean>
+
+
+    <bean id="fileNumberProcessor" class="com.aincorp.processor.FindNumberProcessor">
+        <property name="service" ref="resultService"/>
+        <property name="fileReaderProcessor" ref="myFileReaderProcessor"/>
+    </bean>
+
+    <bean id="resultEndpoint" class="com.aincorp.ws.ResultEndpoint">
+        <property name="findNumberProcessor" ref="fileNumberProcessor"/>
+    </bean>
+
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="location" value="classpath:/datasource.properties"/>
+    </bean>
+
+    <bean id="myProperties"
+          class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <list>
+                <value>classpath*:file.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <wss:binding url="/responseResult">
+        <wss:service>
+            <ws:service bean="#resultEndpoint"/>
+        </wss:service>
+    </wss:binding>
+
+</beans>
